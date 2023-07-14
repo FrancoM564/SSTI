@@ -1,324 +1,299 @@
-
-/*
-
- * Crypto-JS v2.0.0
-
- * http://code.google.com/p/crypto-js/
-
- * Copyright (c) 2009, Jeff Mott. All rights reserved.
-
- * http://code.google.com/p/crypto-js/wiki/License
-
- *
-
- * A JavaScript implementation of the RIPEMD-160 Algorithm
-
- * Version 2.2 Copyright Jeremy Lin, Paul Johnston 2000 - 2009.
-
- * Other contributors: Greg Holt, Andrew Kepert, Ydnar, Lostinet
-
- * Distributed under the BSD License
-
- * See http://pajhome.org.uk/crypt/md5 for details.
-
- * Also http://www.ocf.berkeley.edu/~jjlin/jsotp/
-
- * Ported to Crypto-JS by Stefan Thomas.
-
- */
-
-
-	// Shortcuts
-
-	var C = Crypto,
-
-    util = C.util,
-
-    charenc = C.charenc,
-
-    UTF8 = charenc.UTF8,
-
-    Binary = charenc.Binary;
-
-
-	// Convert a byte array to little-endian 32-bit words
-
-	util.bytesToLWords = function (bytes) {
-
-
-		var output = Array(bytes.length >> 2);
-
-		for (var i = 0; i < output.length; i++)
-
-			output[i] = 0;
-
-		for (var i = 0; i < bytes.length * 8; i += 8)
-
-			output[i>>5] |= (bytes[i / 8] & 0xFF) << (i%32);
-
-		return output;
-
-	};
-
-
-	// Convert little-endian 32-bit words to a byte array
-
-	util.lWordsToBytes = function (words) {
-
-		var output = [];
-
-		for (var i = 0; i < words.length * 32; i += 8)
-
-			output.push((words[i>>5] >>> (i % 32)) & 0xff);
-
-		return output;
-
-	};
-
-
-	// Public API
-
-	var RIPEMD160 = C.RIPEMD160 = function (message, options) {
-
-		var digestbytes = util.lWordsToBytes(RIPEMD160._rmd160(message));
-
-		return options && options.asBytes ? digestbytes :
-
-			options && options.asString ? Binary.bytesToString(digestbytes) :
-
-			util.bytesToHex(digestbytes);
-
-	};
-
-
-	// The core
-
-	RIPEMD160._rmd160 = function (message)
-
-	{
-
-		// Convert to byte array
-
-		if (message.constructor == String) message = UTF8.stringToBytes(message);
-
-
-		var x = util.bytesToLWords(message),
-
-		    len = message.length * 8;
-
-
-		/* append padding */
-
-		x[len >> 5] |= 0x80 << (len % 32);
-
-		x[(((len + 64) >>> 9) << 4) + 14] = len;
-
-
-		var h0 = 0x67452301;
-
-		var h1 = 0xefcdab89;
-
-		var h2 = 0x98badcfe;
-
-		var h3 = 0x10325476;
-
-		var h4 = 0xc3d2e1f0;
-
-
-		for (var i = 0; i < x.length; i += 16) {
-
-			var T;
-
-			var A1 = h0, B1 = h1, C1 = h2, D1 = h3, E1 = h4;
-
-			var A2 = h0, B2 = h1, C2 = h2, D2 = h3, E2 = h4;
-
-			for (var j = 0; j <= 79; ++j) {
-
-				T = safe_add(A1, rmd160_f(j, B1, C1, D1));
-
-				T = safe_add(T, x[i + rmd160_r1[j]]);
-
-				T = safe_add(T, rmd160_K1(j));
-
-				T = safe_add(bit_rol(T, rmd160_s1[j]), E1);
-
-				A1 = E1; E1 = D1; D1 = bit_rol(C1, 10); C1 = B1; B1 = T;
-
-				T = safe_add(A2, rmd160_f(79-j, B2, C2, D2));
-
-				T = safe_add(T, x[i + rmd160_r2[j]]);
-
-				T = safe_add(T, rmd160_K2(j));
-
-				T = safe_add(bit_rol(T, rmd160_s2[j]), E2);
-
-				A2 = E2; E2 = D2; D2 = bit_rol(C2, 10); C2 = B2; B2 = T;
-
-			}
-
-			T = safe_add(h1, safe_add(C1, D2));
-
-			h1 = safe_add(h2, safe_add(D1, E2));
-
-			h2 = safe_add(h3, safe_add(E1, A2));
-
-			h3 = safe_add(h4, safe_add(A1, B2));
-
-			h4 = safe_add(h0, safe_add(B1, C2));
-
-			h0 = T;
-
-		}
-
-		return [h0, h1, h2, h3, h4];
-
-	}
-
-
-	function rmd160_f(j, x, y, z)
-
-	{
-
-		return ( 0 <= j && j <= 15) ? (x ^ y ^ z) :
-
-			(16 <= j && j <= 31) ? (x & y) | (~x & z) :
-
-			(32 <= j && j <= 47) ? (x | ~y) ^ z :
-
-			(48 <= j && j <= 63) ? (x & z) | (y & ~z) :
-
-			(64 <= j && j <= 79) ? x ^ (y | ~z) :
-
-			"rmd160_f: j out of range";
-
-	}
-
-	function rmd160_K1(j)
-
-	{
-
-		return ( 0 <= j && j <= 15) ? 0x00000000 :
-
-			(16 <= j && j <= 31) ? 0x5a827999 :
-
-			(32 <= j && j <= 47) ? 0x6ed9eba1 :
-
-			(48 <= j && j <= 63) ? 0x8f1bbcdc :
-
-			(64 <= j && j <= 79) ? 0xa953fd4e :
-
-			"rmd160_K1: j out of range";
-
-	}
-
-	function rmd160_K2(j)
-
-	{
-
-		return ( 0 <= j && j <= 15) ? 0x50a28be6 :
-
-			(16 <= j && j <= 31) ? 0x5c4dd124 :
-
-			(32 <= j && j <= 47) ? 0x6d703ef3 :
-
-			(48 <= j && j <= 63) ? 0x7a6d76e9 :
-
-			(64 <= j && j <= 79) ? 0x00000000 :
-
-			"rmd160_K2: j out of range";
-
-	}
-
-	var rmd160_r1 = [
-
-		0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15,
-
-		7,  4, 13,  1, 10,  6, 15,  3, 12,  0,  9,  5,  2, 14, 11,  8,
-
-		3, 10, 14,  4,  9, 15,  8,  1,  2,  7,  0,  6, 13, 11,  5, 12,
-
-		1,  9, 11, 10,  0,  8, 12,  4, 13,  3,  7, 15, 14,  5,  6,  2,
-
-		4,  0,  5,  9,  7, 12,  2, 10, 14,  1,  3,  8, 11,  6, 15, 13
-
-	];
-
-	var rmd160_r2 = [
-
-		5, 14,  7,  0,  9,  2, 11,  4, 13,  6, 15,  8,  1, 10,  3, 12,
-
-		6, 11,  3,  7,  0, 13,  5, 10, 14, 15,  8, 12,  4,  9,  1,  2,
-
-		15,  5,  1,  3,  7, 14,  6,  9, 11,  8, 12,  2, 10,  0,  4, 13,
-
-		8,  6,  4,  1,  3, 11, 15,  0,  5, 12,  2, 13,  9,  7, 10, 14,
-
-		12, 15, 10,  4,  1,  5,  8,  7,  6,  2, 13, 14,  0,  3,  9, 11
-
-	];
-
-	var rmd160_s1 = [
-
-		11, 14, 15, 12,  5,  8,  7,  9, 11, 13, 14, 15,  6,  7,  9,  8,
-
-		7,  6,  8, 13, 11,  9,  7, 15,  7, 12, 15,  9, 11,  7, 13, 12,
-
-		11, 13,  6,  7, 14,  9, 13, 15, 14,  8, 13,  6,  5, 12,  7,  5,
-
-		11, 12, 14, 15, 14, 15,  9,  8,  9, 14,  5,  6,  8,  6,  5, 12,
-
-		9, 15,  5, 11,  6,  8, 13, 12,  5, 12, 13, 14, 11,  8,  5,  6
-
-	];
-
-	var rmd160_s2 = [
-
-		8,  9,  9, 11, 13, 15, 15,  5,  7,  7,  8, 11, 14, 14, 12,  6,
-
-		9, 13, 15,  7, 12,  8,  9, 11,  7,  7, 12,  7,  6, 15, 13, 11,
-
-		9,  7, 15, 11,  8,  6,  6, 14, 12, 13,  5, 14, 13, 13,  7,  5,
-
-		15,  5,  8, 11, 14, 14,  6, 14,  6,  9, 12,  9, 12,  5, 15,  8,
-
-		8,  5, 12,  9, 12,  5, 14,  6,  8, 13,  6,  5, 15, 13, 11, 11
-
-	];
-
-
-	/*
-
-	 * Add integers, wrapping at 2^32. This uses 16-bit operations internally
-
-	 * to work around bugs in some JS interpreters.
-
-	 */
-
-	function safe_add(x, y)
-
-	{
-
-		var lsw = (x & 0xFFFF) + (y & 0xFFFF);
-
-		var msw = (x >> 16) + (y >> 16) + (lsw >> 16);
-
-		return (msw << 16) | (lsw & 0xFFFF);
-
-	}
-
-
-	/*
-
-	 * Bitwise rotate a 32-bit number to the left.
-
-	 */
-
-	function bit_rol(num, cnt)
-
-	{
-
-		return (num << cnt) | (num >>> (32 - cnt));
-
-	}
-
+var RMDsize   = 160;
+var X = new Array();
+
+function ROL(x, n)
+{
+  return new Number ((x << n) | ( x >>> (32 - n)));
+}
+
+function F(x, y, z)
+{
+  return new Number(x ^ y ^ z);
+}
+
+function G(x, y, z)
+{
+  return new Number((x & y) | (~x & z));
+}
+
+function H(x, y, z)
+{
+  return new Number((x | ~y) ^ z);
+}
+
+function I(x, y, z)
+{
+  return new Number((x & z) | (y & ~z));
+}
+
+function J(x, y, z)
+{
+  return new Number(x ^ (y | ~z));
+}
+
+function mixOneRound(a, b, c, d, e, x, s, roundNumber)
+{
+  switch (roundNumber)
+  {
+    case 0 : a += F(b, c, d) + x + 0x00000000; break;
+    case 1 : a += G(b, c, d) + x + 0x5a827999; break;
+    case 2 : a += H(b, c, d) + x + 0x6ed9eba1; break;
+    case 3 : a += I(b, c, d) + x + 0x8f1bbcdc; break;
+    case 4 : a += J(b, c, d) + x + 0xa953fd4e; break;
+    case 5 : a += J(b, c, d) + x + 0x50a28be6; break;
+    case 6 : a += I(b, c, d) + x + 0x5c4dd124; break;
+    case 7 : a += H(b, c, d) + x + 0x6d703ef3; break;
+    case 8 : a += G(b, c, d) + x + 0x7a6d76e9; break;
+    case 9 : a += F(b, c, d) + x + 0x00000000; break;
+    
+    default : document.write("Bogus round number"); break;
+  }  
+  
+  a = ROL(a, s) + e;
+  c = ROL(c, 10);
+
+  a &= 0xffffffff;
+  b &= 0xffffffff;
+  c &= 0xffffffff;
+  d &= 0xffffffff;
+  e &= 0xffffffff;
+
+  var retBlock = new Array();
+  retBlock[0] = a;
+  retBlock[1] = b;
+  retBlock[2] = c;
+  retBlock[3] = d;
+  retBlock[4] = e;
+  retBlock[5] = x;
+  retBlock[6] = s;
+
+  return retBlock;
+}
+
+function MDinit (MDbuf)
+{
+  MDbuf[0] = 0x67452301;
+  MDbuf[1] = 0xefcdab89;
+  MDbuf[2] = 0x98badcfe;
+  MDbuf[3] = 0x10325476;
+  MDbuf[4] = 0xc3d2e1f0;
+}
+
+var ROLs = [
+  [11, 14, 15, 12,  5,  8,  7,  9, 11, 13, 14, 15,  6,  7,  9,  8],
+  [ 7,  6,  8, 13, 11,  9,  7, 15,  7, 12, 15,  9, 11,  7, 13, 12],
+  [11, 13,  6,  7, 14,  9, 13, 15, 14,  8, 13,  6,  5, 12,  7,  5],
+  [11, 12, 14, 15, 14, 15,  9,  8,  9, 14,  5,  6,  8,  6,  5, 12],
+  [ 9, 15,  5, 11,  6,  8, 13, 12,  5, 12, 13, 14, 11,  8,  5,  6],
+  [ 8,  9,  9, 11, 13, 15, 15,  5,  7,  7,  8, 11, 14, 14, 12,  6],
+  [ 9, 13, 15,  7, 12,  8,  9, 11,  7,  7, 12,  7,  6, 15, 13, 11],
+  [ 9,  7, 15, 11,  8,  6,  6, 14, 12, 13,  5, 14, 13, 13,  7,  5],
+  [15,  5,  8, 11, 14, 14,  6, 14,  6,  9, 12,  9, 12,  5, 15,  8],
+  [ 8,  5, 12,  9, 12,  5, 14,  6,  8, 13,  6,  5, 15, 13, 11, 11]
+];
+
+var indexes = [
+  [ 0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15],
+  [ 7,  4, 13,  1, 10,  6, 15,  3, 12,  0,  9,  5,  2, 14, 11,  8],
+  [ 3, 10, 14,  4,  9, 15,  8,  1,  2,  7,  0,  6, 13, 11,  5, 12],
+  [ 1,  9, 11, 10,  0,  8, 12,  4, 13,  3,  7, 15, 14,  5,  6,  2],
+  [ 4,  0,  5,  9,  7, 12,  2, 10, 14,  1,  3,  8, 11,  6, 15, 13],
+  [ 5, 14,  7,  0,  9,  2, 11,  4, 13,  6, 15,  8,  1, 10,  3, 12],
+  [ 6, 11,  3,  7,  0, 13,  5, 10, 14, 15,  8, 12,  4,  9,  1,  2],
+  [15,  5,  1,  3,  7, 14,  6,  9, 11,  8, 12,  2, 10,  0,  4, 13],
+  [ 8,  6,  4,  1,  3, 11, 15,  0,  5, 12,  2, 13,  9,  7, 10, 14],
+  [12, 15, 10,  4,  1,  5,  8,  7,  6,  2, 13, 14,  0,  3,  9, 11]
+];
+
+function compress (MDbuf, X)
+{
+  blockA = new Array();
+  blockB = new Array();
+
+  var retBlock;
+
+  for (var i=0; i < 5; i++)
+  {
+    blockA[i] = new Number(MDbuf[i]);
+    blockB[i] = new Number(MDbuf[i]);
+  }
+
+  var step = 0;
+  for (var j = 0; j < 5; j++)
+  {
+    for (var i = 0; i < 16; i++)
+    {
+      retBlock = mixOneRound(
+        blockA[(step+0) % 5],
+        blockA[(step+1) % 5],   
+        blockA[(step+2) % 5],   
+        blockA[(step+3) % 5],   
+        blockA[(step+4) % 5],  
+        X[indexes[j][i]], 
+        ROLs[j][i],
+        j
+      );
+
+      blockA[(step+0) % 5] = retBlock[0];
+      blockA[(step+1) % 5] = retBlock[1];
+      blockA[(step+2) % 5] = retBlock[2];
+      blockA[(step+3) % 5] = retBlock[3];
+      blockA[(step+4) % 5] = retBlock[4];
+
+      step += 4;
+    }
+  }
+
+  step = 0;
+  for (var j = 5; j < 10; j++)
+  {
+    for (var i = 0; i < 16; i++)
+    {  
+      retBlock = mixOneRound(
+        blockB[(step+0) % 5], 
+        blockB[(step+1) % 5], 
+        blockB[(step+2) % 5], 
+        blockB[(step+3) % 5], 
+        blockB[(step+4) % 5],  
+        X[indexes[j][i]], 
+        ROLs[j][i],
+        j
+      );
+
+      blockB[(step+0) % 5] = retBlock[0];
+      blockB[(step+1) % 5] = retBlock[1];
+      blockB[(step+2) % 5] = retBlock[2];
+      blockB[(step+3) % 5] = retBlock[3];
+      blockB[(step+4) % 5] = retBlock[4];
+
+      step += 4;
+    }
+  }
+
+  blockB[3] += blockA[2] + MDbuf[1];
+  MDbuf[1]  = MDbuf[2] + blockA[3] + blockB[4];
+  MDbuf[2]  = MDbuf[3] + blockA[4] + blockB[0];
+  MDbuf[3]  = MDbuf[4] + blockA[0] + blockB[1];
+  MDbuf[4]  = MDbuf[0] + blockA[1] + blockB[2];
+  MDbuf[0]  = blockB[3];
+}
+
+function zeroX(X)
+{
+  for (var i = 0; i < 16; i++) { X[i] = 0; }
+}
+
+function MDfinish (MDbuf, strptr, lswlen, mswlen)
+{
+  var X = new Array(16);
+  zeroX(X);
+
+  var j = 0;
+  for (var i=0; i < (lswlen & 63); i++)
+  {
+    X[i >>> 2] ^= (strptr.charCodeAt(j++) & 255) << (8 * (i & 3));
+  }
+
+  X[(lswlen >>> 2) & 15] ^= 1 << (8 * (lswlen & 3) + 7);
+
+  if ((lswlen & 63) > 55)
+  {
+    compress(MDbuf, X);
+    var X = new Array(16);
+    zeroX(X);
+  }
+
+  X[14] = lswlen << 3;
+  X[15] = (lswlen >>> 29) | (mswlen << 3);
+
+  compress(MDbuf, X);
+}
+
+function BYTES_TO_DWORD(fourChars)
+{
+  var tmp  = (fourChars.charCodeAt(3) & 255) << 24;
+  tmp   |= (fourChars.charCodeAt(2) & 255) << 16;
+  tmp   |= (fourChars.charCodeAt(1) & 255) << 8;
+  tmp   |= (fourChars.charCodeAt(0) & 255);  
+
+  return tmp;
+}
+
+function RMD(message)
+{
+  var MDbuf   = new Array(RMDsize / 32);
+  var hashcode   = new Array(RMDsize / 8);
+  var length;  
+  var nbytes;
+
+  MDinit(MDbuf);
+  length = message.length;
+
+  var X = new Array(16);
+  zeroX(X);
+
+  var j=0;
+  for (var nbytes=length; nbytes > 63; nbytes -= 64)
+  {
+    for (var i=0; i < 16; i++)
+    {
+      X[i] = BYTES_TO_DWORD(message.substr(j, 4));
+      j += 4;
+    }
+    compress(MDbuf, X);
+  }
+
+  MDfinish(MDbuf, message.substr(j), length, 0);
+
+  for (var i=0; i < RMDsize / 8; i += 4)
+  {
+    hashcode[i]   =  MDbuf[i >>> 2]   & 255;
+    hashcode[i+1] = (MDbuf[i >>> 2] >>> 8)   & 255;
+    hashcode[i+2] = (MDbuf[i >>> 2] >>> 16) & 255;
+    hashcode[i+3] = (MDbuf[i >>> 2] >>> 24) & 255;
+  }
+
+  return hashcode;
+}
+
+function toHex32(x)
+{
+  var hexChars = "0123456789abcdef";
+  var hex = "";
+
+  for (var i = 0; i < 2; i++)
+  {
+    hex = String(hexChars.charAt(x & 0xf)).concat(hex);
+    x >>>= 4;
+  }
+
+  return hex;
+}
+
+function toRMDstring(hashcode)
+{
+  var retString = "";
+
+  for (var i=0; i < RMDsize/8; i++)
+  {
+    retString += toHex32(hashcode[i]);
+  }  
+
+  return retString;  
+}
+
+
+function RMDstring(message)
+{
+  var hashcode = RMD(message);
+  var retString = "";
+
+  for (var i=0; i < RMDsize/8; i++)
+  {
+    retString += toHex32(hashcode[i]);
+  }  
+
+  return retString;  
+}
+
+console.log(RMDstring("onichan"))
