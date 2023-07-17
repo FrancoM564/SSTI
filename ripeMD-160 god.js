@@ -196,8 +196,6 @@ function to32Bit(array8Bit) {
 }
 
 function compresion(bloque16words, buffers) {
-  console.log("Buffer inicial: ", buffers);
-  console.log("16wrds: ", bloque16words);
 
   var h0 = buffers[0];
   var h1 = buffers[1];
@@ -395,10 +393,6 @@ function compresion(bloque16words, buffers) {
     }
   }
 
-  console.log(a, b, c, d, e);
-
-  console.log(aPrima, bPrima, cPrima, dPrima, ePrima);
-
   var tempBuffer = buffers[1] + c + dPrima;
   buffers[1] = buffers[2] + d + ePrima;
   buffers[2] = buffers[3] + e + aPrima;
@@ -411,8 +405,6 @@ function compresion(bloque16words, buffers) {
 
 function convertirBuffersABytes(buffers) {
   var resultado = new Uint8Array(buffers.buffer);
-
-  console.log(resultado);
 
   return resultado;
 }
@@ -432,16 +424,27 @@ function convertirBytesAString(Bytes) {
     const hexString = hexArray.join('');
 
     return hexString
-
-
 }
 
 function test() {
-  console.log(
-    ripemd160String(
-      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
-    )
-  );
+  const unMillonDeA = "a".repeat(1000000);
+
+  const test = [
+    "",
+    "a",
+    "abc",
+    "message digest",
+    "abcdefghijklmnopqrstuvwxyz",
+    "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq",
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789",
+    "12345678901234567890123456789012345678901234567890123456789012345678901234567890",
+    unMillonDeA
+  ]
+
+  test.forEach(element =>{
+    console.log("tamaño string prueba: ", element.length)
+    console.log(ripemd160String(element))
+  })
 }
 
 test();
